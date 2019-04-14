@@ -5,17 +5,19 @@ import json
 import os
 import numpy as np
 import tensorflow as tf
+import time
 
 import model, sample, encoder
+from google.cloud import storage
 
 def interact_model(
     model_name='117M',
     seed=None,
-    nsamples=1,
-    batch_size=1,
-    length=None,
-    temperature=1,
-    top_k=0,
+    nsamples=3,
+    batch_size=3,
+    length=20,
+    temperature=0.7,
+    top_k=30,
 ):
     """
     Interactively run the model
@@ -64,24 +66,84 @@ def interact_model(
         ckpt = tf.train.latest_checkpoint(os.path.join('models', model_name))
         saver.restore(sess, ckpt)
 
+        gcs = storage.Client()
+        bucket = gcs.get_bucket('pimax')
+        question_file = r"gpt-2/question.json"
+        prediction_file = r"gpt-2/predictions.json"
+        nb_iter = 3
+        total_predictions = nsamples ** nb_iter
+
         while True:
-            raw_text = input("Model prompt >>> ")
-            while not raw_text:
-                print('Prompt should not be empty!')
-                raw_text = input("Model prompt >>> ")
-            context_tokens = enc.encode(raw_text)
-            generated = 0
-            for _ in range(nsamples // batch_size):
-                out = sess.run(output, feed_dict={
-                    context: [context_tokens for _ in range(batch_size)]
-                })[:, len(context_tokens):]
-                for i in range(batch_size):
-                    generated += 1
-                    text = enc.decode(out[i])
-                    print("=" * 40 + " SAMPLE " + str(generated) + " " + "=" * 40)
-                    print(text)
-            print("=" * 80)
+
+            if not storage.Blob(bucket=bucket, name=question_file).exists(gcs):
+                time.sleep(1)
+                continue
+            raw_text = json.loads(bucket.get_blob(question_file).download_as_string())["question"]
+            # raw_text = bucket.get_blob(r'117M/text.txt').download_as_string().decode("utf-8")
+            predictions = {}
+            for i in range(1, total_predictions + 1):
+                predictions["answer_%s" % str(i)] = [raw_text]
+
+            #while we have not fully completed the answers
+            while len(predictions["answer_%s" % str(total_predictions)]) != nb_iter + 1:
+                iter = len(predictions["answer_%s" % str(getnextpred(predictions))])
+                nb_answers_to_fill = nsamples**(nb_iter-iter)
+                generated = 0
+                context_tokens = enc.encode(getnextsentence(predictions))
+                for _ in range(nsamples // batch_size):
+                    out = sess.run(output, feed_dict={
+                        context: [context_tokens for _ in range(batch_size)]
+                    })[:, len(context_tokens):]
+                    for i in range(batch_size):
+                        generated += 1
+                        text = enc.decode(out[i])
+                        print("=" * 40 + " SAMPLE " + str(generated) + " " + "=" * 40)
+                        print(text)
+                        predictions = addNewPreds(text, predictions, nb_answers_to_fill)
+                print("=" * 80)
+
+            for i in range(1, total_predictions+1):
+                predictions["answer_%s" % str(i)] = "".join(predictions["answer_%s" % str(i)])
+            bucket.blob(question_file).delete()
+            bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
+
+
+def addNewPredsold(text, predictions, nb_times):
+    lastpred = len(predictions)
+    lastmaxpreds = len(predictions["answer_%s" % str(lastpred)])
+    for i in range(lastpred, 0, -1):
+        lastpred = i
+        if lastmaxpreds != len(predictions["answer_%s" % str(i)]):
+            break
+    for i in range(lastpred, lastpred + nb_times):
+        predictions["answer_%s" % str(i)].append(text)
+    return predictions
+
+
+def getnextpred(predictions):
+    nextpred = 1
+    maxpreds = len(predictions["answer_1"])
+    for i in range(1, len(predictions)+1):
+        if maxpreds != len(predictions["answer_%s" % str(i)]):
+            nextpred = i
+            break
+    return nextpred
+
+
+def addNewPreds(text, predictions, nb_times):
+    nextpred = getnextpred(predictions)
+    for i in range(nextpred, nextpred + nb_times):
+        predictions["answer_%s" % str(i)].append(text)
+    return predictions
+
+
+def getnextsentence(predictions):
+    nextpred = getnextpred(predictions)
+    return "".join(predictions["answer_%s" % str(nextpred)])
+
 
 if __name__ == '__main__':
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'D:\onedrive\dev\GCP\thematic-envoy-235713-727f0c0b00de.json'
+    os.environ['PYTHONIOENCODING'] = 'UTF-8'
     fire.Fire(interact_model)
 
