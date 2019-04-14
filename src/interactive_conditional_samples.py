@@ -104,7 +104,7 @@ def interact_model(
 
             for i in range(1, total_predictions+1):
                 answer = "".join(predictions["answer_%s" % str(i)])
-                predictions["answer_%s" % str(i)] = answer[:answer.rfind(".")]
+                predictions["answer_%s" % str(i)] = answer[:answer.rfind(".")].replace("\n", "")
             bucket.blob(question_file).delete()
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
