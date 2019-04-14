@@ -108,18 +108,6 @@ def interact_model(
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
 
-def addNewPredsold(text, predictions, nb_times):
-    lastpred = len(predictions)
-    lastmaxpreds = len(predictions["answer_%s" % str(lastpred)])
-    for i in range(lastpred, 0, -1):
-        lastpred = i
-        if lastmaxpreds != len(predictions["answer_%s" % str(i)]):
-            break
-    for i in range(lastpred, lastpred + nb_times):
-        predictions["answer_%s" % str(i)].append(text)
-    return predictions
-
-
 def getnextpred(predictions):
     nextpred = 1
     maxpreds = len(predictions["answer_1"])
