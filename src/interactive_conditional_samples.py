@@ -102,11 +102,9 @@ def interact_model(
                         predictions = addNewPreds(text, predictions, nb_answers_to_fill)
                 print("=" * 80)
 
-            predictions["content"] = ""
             for i in range(1, total_predictions+1):
                 answer = "".join(predictions["answer_%s" % str(i)])
                 predictions["answer_%s" % str(i)] = answer[:answer.rfind(".")]
-                predictions["content"] = predictions["content"] + predictions["answer_%s" % str(i)] + "\n"
             bucket.blob(question_file).delete()
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
