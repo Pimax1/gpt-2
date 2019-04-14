@@ -103,7 +103,8 @@ def interact_model(
                 print("=" * 80)
 
             for i in range(1, total_predictions+1):
-                predictions["answer_%s" % str(i)] = "".join(predictions["answer_%s" % str(i)])
+                answer = "".join(predictions["answer_%s" % str(i)])
+                predictions["answer_%s" % str(i)] = answer[:answer.rfind(".")]
             bucket.blob(question_file).delete()
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
