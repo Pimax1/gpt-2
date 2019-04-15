@@ -80,16 +80,16 @@ def interact_model(
                 continue
             raw_text = json.loads(bucket.get_blob(question_file).download_as_string())["question"]
             # raw_text = bucket.get_blob(r'117M/text.txt').download_as_string().decode("utf-8")
-            predictions = {}
+            preds_tmp = {}
             for i in range(1, total_predictions + 1):
-                predictions["answer_%s" % str(i)] = [raw_text]
+                preds_tmp["answer_%s" % str(i)] = [raw_text]
 
             #while we have not fully completed the answers
-            while len(predictions["answer_%s" % str(total_predictions)]) != nb_iter + 1:
-                iter = len(predictions["answer_%s" % str(getnextpred(predictions))])
+            while len(preds_tmp["answer_%s" % str(total_predictions)]) != nb_iter + 1:
+                iter = len(preds_tmp["answer_%s" % str(getnextpred(preds_tmp))])
                 nb_answers_to_fill = nsamples**(nb_iter-iter)
                 generated = 0
-                context_tokens = enc.encode(getnextsentence(predictions))
+                context_tokens = enc.encode(getnextsentence(preds_tmp))
                 for _ in range(nsamples // batch_size):
                     out = sess.run(output, feed_dict={
                         context: [context_tokens for _ in range(batch_size)]
@@ -99,12 +99,15 @@ def interact_model(
                         text = enc.decode(out[i])
                         print("=" * 40 + " SAMPLE " + str(generated) + " " + "=" * 40)
                         print(text)
-                        predictions = addNewPreds(text, predictions, nb_answers_to_fill)
+                        print(clean_sentence(text))
+                        preds_tmp = addNewPreds(clean_sentence(text), preds_tmp, nb_answers_to_fill)
                 print("=" * 80)
-
+            predictions = {}
+            predictions["answers"] = []
             for i in range(1, total_predictions+1):
-                answer = "".join(predictions["answer_%s" % str(i)])
-                predictions["answer_%s" % str(i)] = answer[:answer.rfind(".")].replace("\n", "")
+                answer = "".join(preds_tmp["answer_%s" % str(i)])
+                answer = answer[:max(answer.rfind("."), answer.rfind("!"), answer.rfind("?"), 0) + 1]
+                predictions["answers"].append(answer)
             bucket.blob(question_file).delete()
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
@@ -130,6 +133,11 @@ def getnextsentence(predictions):
     nextpred = getnextpred(predictions)
     return "".join(predictions["answer_%s" % str(nextpred)])
 
+def clean_sentence(text):
+    text = text.replace("\n", " ")
+    # text = text.split("\n")[0]
+    # text = text[:max(text.rfind(";"), text.rfind("!"),text.rfind("."), 0)]
+    return text
 
 if __name__ == '__main__':
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'D:\onedrive\dev\GCP\thematic-envoy-235713-727f0c0b00de.json'
