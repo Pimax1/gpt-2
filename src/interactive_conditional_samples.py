@@ -105,14 +105,18 @@ def interact_model(
             predictions = {}
             predictions["answers"] = []
             for i in range(1, total_predictions+1):
-                answer = "".join(preds_tmp["answer_%s" % str(i)])
-                answer = answer[:max(answer.rfind("."), answer.rfind("!"), answer.rfind("?"), 0) + 1]
+                answer = "".join(list(dict.fromkeys(preds_tmp["answer_%s" % str(i)])))  # removes duplicates and join
+                answer = answer[:max(answer.rfind("."), answer.rfind("!"), answer.rfind("?"), 0) + 1]  # till last .!?
                 predictions["answers"].append(answer)
             bucket.blob(question_file).delete()
             bucket.blob(prediction_file).upload_from_string(json.dumps(predictions, ensure_ascii=False))
 
 
 def getnextpred(predictions):
+    """
+    :param predictions:
+    :return: indice of next prediction to fill
+    """
     nextpred = 1
     maxpreds = len(predictions["answer_1"])
     for i in range(1, len(predictions)+1):
