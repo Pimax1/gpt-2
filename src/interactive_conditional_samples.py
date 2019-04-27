@@ -13,8 +13,8 @@ from google.cloud import storage
 def interact_model(
     model_name='117M',
     seed=None,
-    nsamples=3,
-    batch_size=3,
+    nsamples=27,
+    batch_size=27,
     length=20,
     temperature=0.7,
     top_k=30,
@@ -71,7 +71,7 @@ def interact_model(
         question_file = r"gpt-2/question.json"
         prediction_file = r"gpt-2/predictions.json"
         nb_iter = 3
-        total_predictions = nsamples ** nb_iter
+        total_predictions = nsamples  # ** nb_iter
 
         while True:
 
@@ -102,7 +102,8 @@ def interact_model(
                         print("=" * 40 + " SAMPLE " + str(generated) + " " + "=" * 40)
                         print(text)
                         print(clean_sentence(text))
-                        preds_tmp = addNewPreds(clean_sentence(text), preds_tmp, nb_answers_to_fill)
+                        preds_tmp = addNewPreds(clean_sentence(text), preds_tmp, 1)
+                        #preds_tmp = addNewPreds(clean_sentence(text), preds_tmp, nb_answers_to_fill)
                 print("=" * 80)
             predictions = {}
             predictions["answers"] = []
@@ -145,9 +146,13 @@ def getnextsentence(predictions):
 def clean_sentence(text):
     text = text.replace("\n", " ")
     text = text.replace("\xa0", " ")
+    text = text.replace("<|endoftext|>", "")
+
     text = text.replace(" A.", " ").replace(" a.", " ").replace(" a,", " ").replace(" A,", " ").replace(" A:", " ")
     text = text.replace(" A;", " ").replace(" a;", " ").replace("\"", "")
     text = text.replace(" A;", " ").replace(" a;", " ").replace("\"", "")
+
+
 
     # text = text.split("\n")[0]
     # text = text[:max(text.rfind(";"), text.rfind("!"),text.rfind("."), 0)]
