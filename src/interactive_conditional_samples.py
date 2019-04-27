@@ -86,10 +86,12 @@ def interact_model(
 
             #while we have not fully completed the answers
             while len(preds_tmp["answer_%s" % str(total_predictions)]) != nb_iter + 1:
-                iter = len(preds_tmp["answer_%s" % str(getnextpred(preds_tmp))])
+                next_pred = getnextpred(preds_tmp)
+                iter = len(preds_tmp["answer_" + str(next_pred)])
                 nb_answers_to_fill = nsamples**(nb_iter-iter)
                 generated = 0
-                context_tokens = enc.encode(getnextsentence(preds_tmp))
+                next_sentence = getnextsentence(preds_tmp)
+                context_tokens = enc.encode(next_sentence)
                 for _ in range(nsamples // batch_size):
                     out = sess.run(output, feed_dict={
                         context: [context_tokens for _ in range(batch_size)]
@@ -105,7 +107,10 @@ def interact_model(
             predictions = {}
             predictions["answers"] = []
             for i in range(1, total_predictions+1):
-                answer = "".join(list(dict.fromkeys(preds_tmp["answer_%s" % str(i)])))  # removes duplicates and join
+                answer = "".join(preds_tmp["answer_%s" % str(i)])  # join answers
+                answer = ".".join(list(dict.fromkeys(answer.split("."))))  # remove duplicate sentences
+                answer = "!".join(list(dict.fromkeys(answer.split("!"))))  # remove duplicate sentences
+                answer = "?".join(list(dict.fromkeys(answer.split("?"))))  # remove duplicate sentences
                 answer = answer[:max(answer.rfind("."), answer.rfind("!"), answer.rfind("?"), 0) + 1]  # till last .!?
                 predictions["answers"].append(answer)
             bucket.blob(question_file).delete()
@@ -139,6 +144,11 @@ def getnextsentence(predictions):
 
 def clean_sentence(text):
     text = text.replace("\n", " ")
+    text = text.replace("\xa0", " ")
+    text = text.replace(" A.", " ").replace(" a.", " ").replace(" a,", " ").replace(" A,", " ").replace(" A:", " ")
+    text = text.replace(" A;", " ").replace(" a;", " ").replace("\"", "")
+    text = text.replace(" A;", " ").replace(" a;", " ").replace("\"", "")
+
     # text = text.split("\n")[0]
     # text = text[:max(text.rfind(";"), text.rfind("!"),text.rfind("."), 0)]
     return text
