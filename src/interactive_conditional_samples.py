@@ -11,7 +11,7 @@ import model, sample, encoder
 from google.cloud import storage
 
 def interact_model(
-    model_name='124M',
+    model_name='774M',
     seed=None,
     nsamples=27,
     batch_size=27,
